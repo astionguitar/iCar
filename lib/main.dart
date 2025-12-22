@@ -31,7 +31,7 @@ class MyApp extends StatelessWidget {
         colorSchemeSeed: Colors.blue,
         useMaterial3: true,
       ),
-      home: const AuthGate(),
+      home: const HomeScreen(),
     );
   }
 }

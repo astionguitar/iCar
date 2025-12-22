@@ -1,43 +1,38 @@
 import 'package:flutter/material.dart';
+import 'package:icar/models/workshop.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 class WorkshopDetailScreen extends StatelessWidget {
-  final String name;
-  final String category;
-  final String region;
-  final String phone;
-  final double? latitude;
-  final double? longitude;
+  final Workshop workshop;
 
   const WorkshopDetailScreen({
     super.key,
-    required this.name,
-    required this.category,
-    required this.region,
-    required this.phone,
-    this.latitude,
-    this.longitude,
+    required this.workshop,
   });
 
-  void _callPhone() async {
-    final uri = Uri.parse('tel:$phone');
+
+  Future<void> _callWorkshop() async {
+    final uri = Uri.parse('tel:${workshop.phone}');
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri);
     }
   }
 
-  void _openWhatsApp() async {
-    final uri = Uri.parse('https://wa.me/55$phone');
+  Future<void> _openWhatsApp() async {
+    if (workshop.whatsapp == null || workshop.whatsapp!.isEmpty) return;
+
+    final uri = Uri.parse('https://wa.me/${workshop.whatsapp}');
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
   }
 
-  void _openMaps() async {
-    if (latitude == null || longitude == null) return;
+  Future<void> _openMap() async {
+    if (workshop.latitude == null || workshop.longitude == null) return;
 
     final uri = Uri.parse(
-      'https://www.google.com/maps/search/?api=1&query=$latitude,$longitude',
+      'https://www.google.com/maps/search/?api=1&query=${workshop.latitude},${workshop.longitude}',
     );
 
     if (await canLaunchUrl(uri)) {
@@ -48,58 +43,70 @@ class WorkshopDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(name)),
+      appBar: AppBar(
+        title: Text(workshop.name),
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              name,
+              workshop.name,
               style: const TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(height: 6),
-            Text('$category • $region'),
 
-            const SizedBox(height: 16),
+            const SizedBox(height: 6),
+
+            Text(
+              '${workshop.type} • ${workshop.neighborhood}',
+              style: const TextStyle(fontSize: 16),
+            ),
+
+            const SizedBox(height: 12),
 
             Row(
-              children: const [
-                Icon(Icons.star, color: Colors.orange),
-                Icon(Icons.star, color: Colors.orange),
-                Icon(Icons.star, color: Colors.orange),
-                Icon(Icons.star, color: Colors.orange),
-                Icon(Icons.star_half, color: Colors.orange),
-                SizedBox(width: 8),
-                Text('4.5'),
+              children: [
+                const Icon(Icons.star, color: Colors.orange),
+                const SizedBox(width: 4),
+                Text(
+                  workshop.rating.toStringAsFixed(1),
+                  style: const TextStyle(fontSize: 16),
+                ),
               ],
             ),
 
-            const SizedBox(height: 32),
+            const SizedBox(height: 20),
 
-            ElevatedButton.icon(
-              onPressed: _callPhone,
-              icon: const Icon(Icons.call),
-              label: const Text('Ligar'),
+            Wrap(
+              spacing: 12,
+              children: [
+                ElevatedButton.icon(
+                  onPressed: _callWorkshop,
+                  icon: const Icon(Icons.phone),
+                  label: const Text('Ligar'),
+                ),
+
+                if (workshop.whatsapp != null &&
+                    workshop.whatsapp!.isNotEmpty)
+                  ElevatedButton.icon(
+                    onPressed: _openWhatsApp,
+                    icon: const FaIcon(FontAwesomeIcons.whatsapp),
+                    label: const Text('WhatsApp'),
+                  ),
+
+                if (workshop.latitude != null &&
+                    workshop.longitude != null)
+                  ElevatedButton.icon(
+                    onPressed: _openMap,
+                    icon: const Icon(Icons.map),
+                    label: const Text('Mapa'),
+                  ),
+              ],
             ),
-            const SizedBox(height: 12),
-
-            ElevatedButton.icon(
-              onPressed: _openWhatsApp,
-              icon: const Icon(Icons.chat),
-              label: const Text('WhatsApp'),
-            ),
-            const SizedBox(height: 12),
-
-            if (latitude != null && longitude != null)
-              ElevatedButton.icon(
-                onPressed: _openMaps,
-                icon: const Icon(Icons.map),
-                label: const Text('Ver no mapa'),
-              ),
           ],
         ),
       ),

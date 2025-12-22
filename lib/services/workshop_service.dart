@@ -16,6 +16,30 @@ class WorkshopService {
         .toList();
   }
 
+  /// 🔎 BUSCA INTELIGENTE
+  Future<List<Workshop>> search(String query) async {
+    if (query.trim().isEmpty) {
+      return getActiveWorkshops();
+    }
+
+    final response = await _client
+        .from('workshops')
+        .select()
+        .eq('is_active', true)
+        .or(
+          'name.ilike.%$query%,'
+          'category.ilike.%$query%,'
+          'type.ilike.%$query%,'
+          'neighborhood.ilike.%$query%,'
+          'city.ilike.%$query%',
+        )
+        .order('is_premium', ascending: false);
+
+    return (response as List)
+        .map((e) => Workshop.fromMap(e))
+        .toList();
+  }
+
   Future<List<Workshop>> getByCategory(String category) async {
     final response = await _client
         .from('workshops')

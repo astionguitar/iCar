@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:icar/models/workshop.dart';
-import 'package:icar/screens/workshops/workshop_detail_screen.dart';
-import 'package:icar/screens/workshops/workshops_by_category_screen.dart';
-import 'package:icar/services/supabase_service.dart';
 import 'package:icar/services/workshop_service.dart';
+import 'package:icar/screens/workshops/workshop_detail_screen.dart';
+import 'package:icar/screens/auth/login_screen.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -13,83 +13,136 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  int _currentIndex = 0;
+  final WorkshopService _service = WorkshopService();
+
+  List<Workshop> _workshops = [];
+  bool _loading = true;
+  String _selectedCategory = 'Todos';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadWorkshops();
+  }
+
+  Future<void> _loadWorkshops() async {
+    final data = await _service.getActiveWorkshops();
+    setState(() {
+      _workshops = data;
+      _loading = false;
+    });
+  }
+
+  Future<void> _search(String value) async {
+    final result = await _service.search(value);
+    setState(() => _workshops = result);
+  }
+
+  bool get _isLogged =>
+      Supabase.instance.client.auth.currentSession != null;
+
+  void _goLogin() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
-
-      // 🔹 APP BAR
-      appBar: AppBar(
-        title: const Text('iCar'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: 'Sair',
-            onPressed: () async {
-              await SupabaseService().signOut();
-            },
-          ),
-        ],
-      ),
-
-      body: _currentIndex == 0 ? _homeContent() : _perfil(),
-
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (i) => setState(() => _currentIndex = i),
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Início',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Perfil',
-          ),
-        ],
-      ),
+      backgroundColor: const Color(0xFFF6F7F9),
+      appBar: _appBar(),
+      body: _body(),
     );
   }
 
-  // ================= HOME =================
+  PreferredSizeWidget _appBar() {
+    return AppBar(
+      backgroundColor: Colors.white,
+      elevation: 0,
+      leading: IconButton(
+        icon: const Icon(Icons.directions_car, color: Color(0xFF2F55D4)),
+        onPressed: () {
+          // ÍCONE iCar → HOME
+          _loadWorkshops();
+        },
+      ),
+      title: const Text(
+        'iCar',
+        style: TextStyle(
+          color: Color(0xFF2F55D4),
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      actions: [
+        TextButton.icon(
+          onPressed: _isLogged ? () {} : _goLogin,
+          icon: const Icon(Icons.person, color: Color(0xFF2F55D4)),
+          label: Text(
+            _isLogged ? 'Perfil' : 'Entrar',
+            style: const TextStyle(color: Color(0xFF2F55D4)),
+          ),
+        ),
+      ],
+    );
+  }
 
-  Widget _homeContent() {
-    return FutureBuilder<List<Workshop>>(
-      future: WorkshopService().getActiveWorkshops(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
+  Widget _body() {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        _hero(),
+        const SizedBox(height: 24),
+        _searchBox(),
+        const SizedBox(height: 16),
+        _categories(),
+        const SizedBox(height: 24),
+        const Text(
+          'Oficinas Recomendadas',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 12),
+        _workshopList(),
+      ],
+    );
+  }
 
-        if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return const Center(child: Text('Nenhuma oficina encontrada'));
-        }
-
-        final workshops = snapshot.data!;
-
-        return ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            _searchBox(),
-            const SizedBox(height: 16),
-            _categories(),
-            const SizedBox(height: 24),
-            _sectionTitle('Oficinas próximas'),
-            const SizedBox(height: 12),
-
-            ...workshops.map((w) => _workshopCard(w)),
-          ],
-        );
-      },
+  Widget _hero() {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        gradient: const LinearGradient(
+          colors: [Color(0xFF2F55D4), Color(0xFF3F6AE0)],
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: const [
+          Text(
+            'Encontre a oficina ideal para o seu carro',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          SizedBox(height: 8),
+          Text(
+            'Manutenção simples, transparente e perto de você.',
+            style: TextStyle(color: Colors.white70),
+          ),
+        ],
+      ),
     );
   }
 
   Widget _searchBox() {
     return TextField(
+      onChanged: _search,
       decoration: InputDecoration(
-        hintText: 'Buscar serviços ou oficinas',
+        hintText: 'Buscar por nome ou endereço...',
         prefixIcon: const Icon(Icons.search),
         filled: true,
         fillColor: Colors.white,
@@ -102,122 +155,89 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _categories() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        _Category(
-          icon: Icons.build,
-          label: 'Mecânica',
-          onTap: () => _openCategory('mecanica'),
-        ),
-        _Category(
-          icon: Icons.bolt,
-          label: 'Elétrica',
-          onTap: () => _openCategory('eletrica'),
-        ),
-        _Category(
-          icon: Icons.tire_repair,
-          label: 'Pneus',
-          onTap: () => _openCategory('pneu'),
-        ),
-        _Category(
-          icon: Icons.local_shipping,
-          label: 'Guincho',
-          onTap: () => _openCategory('guincho'),
-        ),
-      ],
-    );
-  }
+    final categories = [
+      'Todos',
+      'Mecânica',
+      'Elétrica',
+      'Troca de Óleo',
+    ];
 
-  void _openCategory(String category) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => WorkshopsByCategoryScreen(category: category),
-      ),
-    );
-  }
+    return SizedBox(
+      height: 42,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: categories.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (_, i) {
+          final cat = categories[i];
+          final selected = cat == _selectedCategory;
 
-  Widget _sectionTitle(String title) {
-    return Text(
-      title,
-      style: const TextStyle(
-        fontSize: 18,
-        fontWeight: FontWeight.bold,
-      ),
-    );
-  }
+          return ChoiceChip(
+            label: Text(cat),
+            selected: selected,
+            onSelected: (_) async {
+              setState(() => _selectedCategory = cat);
 
-  Widget _workshopCard(Workshop w) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: w.isPremium ? Colors.amber : Colors.blue,
-          child: const Icon(Icons.build, color: Colors.white),
-        ),
-        title: Text(w.name),
-        subtitle: Text('${w.type} • ${w.neighborhood}'),
-        trailing: const Icon(Icons.chevron_right),
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => WorkshopDetailScreen(
-                name: w.name,
-                category: w.type,
-                region: w.neighborhood,
-                phone: w.phone,
-                latitude: w.latitude,
-                longitude: w.longitude,
-              ),
-            ),
+              if (cat == 'Todos') {
+                _loadWorkshops();
+              } else {
+                final result = await _service.getByCategory(cat);
+                setState(() => _workshops = result);
+              }
+            },
           );
         },
       ),
     );
   }
 
-  // ================= PERFIL =================
+  Widget _workshopList() {
+    if (_loading) {
+      return const Padding(
+        padding: EdgeInsets.only(top: 32),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
 
-  Widget _perfil() {
-    return const Center(
-      child: Text(
-        'Perfil (em breve)',
-        style: TextStyle(fontSize: 18),
-      ),
+    if (_workshops.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.only(top: 32),
+        child: Center(child: Text('Nenhuma oficina encontrada')),
+      );
+    }
+
+    return Column(
+      children: _workshops
+          .map((w) => _workshopCard(w))
+          .toList(),
     );
   }
-}
 
-// ================= CATEGORY BUTTON =================
-
-class _Category extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  const _Category({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        children: [
-          CircleAvatar(
-            radius: 28,
-            backgroundColor: Colors.blue.shade100,
-            child: Icon(icon, color: Colors.blue),
-          ),
-          const SizedBox(height: 6),
-          Text(label, style: const TextStyle(fontSize: 12)),
-        ],
+  Widget _workshopCard(Workshop workshop) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor:
+              workshop.isPremium ? Colors.orange : Colors.blue,
+          child: const Icon(Icons.build, color: Colors.white),
+        ),
+        title: Text(workshop.name),
+        subtitle:
+            Text('${workshop.type} • ${workshop.neighborhood}'),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) =>
+                  WorkshopDetailScreen(workshop: workshop),
+            ),
+          );
+        },
       ),
     );
   }
