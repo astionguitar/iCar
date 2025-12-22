@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:icar/models/workshop.dart';
-import 'package:icar/services/workshop_service.dart';
-import 'package:icar/screens/workshops/workshop_detail_screen.dart';
-import 'package:icar/screens/auth/login_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../../models/workshop.dart';
+import '../../services/workshop_service.dart';
+import '../workshops/workshop_detail_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -17,15 +17,26 @@ class _HomeScreenState extends State<HomeScreen> {
 
   List<Workshop> _workshops = [];
   bool _loading = true;
-  String _selectedCategory = 'Todos';
+  int _selectedCategory = 0;
+
+  bool get isLogged =>
+      Supabase.instance.client.auth.currentUser != null;
+
+  final List<String> categories = [
+    'Todos',
+    'Mecânica',
+    'Elétrica',
+    'Funilaria',
+    'Pneus',
+  ];
 
   @override
   void initState() {
     super.initState();
-    _loadWorkshops();
+    _loadAll();
   }
 
-  Future<void> _loadWorkshops() async {
+  Future<void> _loadAll() async {
     final data = await _service.getActiveWorkshops();
     setState(() {
       _workshops = data;
@@ -34,66 +45,87 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _search(String value) async {
+    if (value.isEmpty) {
+      _loadAll();
+      return;
+    }
+
     final result = await _service.search(value);
-    setState(() => _workshops = result);
+    setState(() {
+      _workshops = result;
+    });
   }
 
-  bool get _isLogged =>
-      Supabase.instance.client.auth.currentSession != null;
+  Future<void> _filterCategory(String category) async {
+    if (category == 'Todos') {
+      _loadAll();
+      return;
+    }
 
-  void _goLogin() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
-    );
+    final result = await _service.getByCategory(category);
+    setState(() {
+      _workshops = result;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F7F9),
-      appBar: _appBar(),
+      appBar: _header(context),
       body: _body(),
+      bottomNavigationBar: isLogged ? _footer(context) : null,
     );
   }
 
-  PreferredSizeWidget _appBar() {
+  // ───────────────── HEADER ─────────────────
+
+  AppBar _header(BuildContext context) {
     return AppBar(
-      backgroundColor: Colors.white,
-      elevation: 0,
-      leading: IconButton(
-        icon: const Icon(Icons.directions_car, color: Color(0xFF2F55D4)),
-        onPressed: () {
-          // ÍCONE iCar → HOME
-          _loadWorkshops();
+      titleSpacing: 0,
+      title: InkWell(
+        onTap: () {
+          Navigator.pushNamedAndRemoveUntil(context, '/', (_) => false);
         },
-      ),
-      title: const Text(
-        'iCar',
-        style: TextStyle(
-          color: Color(0xFF2F55D4),
-          fontWeight: FontWeight.bold,
+        child: Row(
+          children: const [
+            SizedBox(width: 12),
+            Icon(Icons.directions_car),
+            SizedBox(width: 8),
+            Text(
+              'iCar',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ],
         ),
       ),
       actions: [
         TextButton.icon(
-          onPressed: _isLogged ? () {} : _goLogin,
-          icon: const Icon(Icons.person, color: Color(0xFF2F55D4)),
-          label: Text(
-            _isLogged ? 'Perfil' : 'Entrar',
-            style: const TextStyle(color: Color(0xFF2F55D4)),
-          ),
+          onPressed: () {
+            if (isLogged) {
+              Navigator.pushNamed(context, '/profile');
+            } else {
+              Navigator.pushNamed(context, '/login');
+            }
+          },
+          icon: const Icon(Icons.person_outline),
+          label: Text(isLogged ? 'Perfil' : 'Entrar'),
         ),
       ],
     );
   }
 
+  // ───────────────── BODY ─────────────────
+
   Widget _body() {
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
         _hero(),
-        const SizedBox(height: 24),
+        const SizedBox(height: 16),
         _searchBox(),
         const SizedBox(height: 16),
         _categories(),
@@ -103,28 +135,26 @@ class _HomeScreenState extends State<HomeScreen> {
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 12),
-        _workshopList(),
+        ..._workshops.map(_card),
       ],
     );
   }
 
   Widget _hero() {
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
+        color: const Color(0xFF2F55D4),
         borderRadius: BorderRadius.circular(16),
-        gradient: const LinearGradient(
-          colors: [Color(0xFF2F55D4), Color(0xFF3F6AE0)],
-        ),
       ),
-      child: Column(
+      child: const Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: const [
+        children: [
           Text(
             'Encontre a oficina ideal para o seu carro',
             style: TextStyle(
               color: Colors.white,
-              fontSize: 22,
+              fontSize: 20,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -155,35 +185,21 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _categories() {
-    final categories = [
-      'Todos',
-      'Mecânica',
-      'Elétrica',
-      'Troca de Óleo',
-    ];
-
     return SizedBox(
-      height: 42,
+      height: 40,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: categories.length,
         separatorBuilder: (_, __) => const SizedBox(width: 8),
-        itemBuilder: (_, i) {
-          final cat = categories[i];
-          final selected = cat == _selectedCategory;
+        itemBuilder: (context, index) {
+          final selected = index == _selectedCategory;
 
           return ChoiceChip(
-            label: Text(cat),
+            label: Text(categories[index]),
             selected: selected,
-            onSelected: (_) async {
-              setState(() => _selectedCategory = cat);
-
-              if (cat == 'Todos') {
-                _loadWorkshops();
-              } else {
-                final result = await _service.getByCategory(cat);
-                setState(() => _workshops = result);
-              }
+            onSelected: (_) {
+              setState(() => _selectedCategory = index);
+              _filterCategory(categories[index]);
             },
           );
         },
@@ -191,54 +207,45 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _workshopList() {
-    if (_loading) {
-      return const Padding(
-        padding: EdgeInsets.only(top: 32),
-        child: Center(child: CircularProgressIndicator()),
-      );
-    }
-
-    if (_workshops.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.only(top: 32),
-        child: Center(child: Text('Nenhuma oficina encontrada')),
-      );
-    }
-
-    return Column(
-      children: _workshops
-          .map((w) => _workshopCard(w))
-          .toList(),
-    );
-  }
-
-  Widget _workshopCard(Workshop workshop) {
+  Widget _card(Workshop w) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
       child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor:
-              workshop.isPremium ? Colors.orange : Colors.blue,
-          child: const Icon(Icons.build, color: Colors.white),
+        leading: const CircleAvatar(
+          backgroundColor: Colors.orange,
+          child: Icon(Icons.build, color: Colors.white),
         ),
-        title: Text(workshop.name),
-        subtitle:
-            Text('${workshop.type} • ${workshop.neighborhood}'),
+        title: Text(w.name),
+        subtitle: Text('${w.type} • ${w.neighborhood}'),
         trailing: const Icon(Icons.chevron_right),
         onTap: () {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) =>
-                  WorkshopDetailScreen(workshop: workshop),
+              builder: (_) => WorkshopDetailScreen(workshop: w),
             ),
           );
         },
       ),
+    );
+  }
+
+  // ───────────────── FOOTER ─────────────────
+
+  Widget _footer(BuildContext context) {
+    return BottomNavigationBar(
+      currentIndex: 0,
+      onTap: (index) {
+        if (index == 0) {
+          Navigator.pushNamedAndRemoveUntil(context, '/', (_) => false);
+        } else {
+          Navigator.pushNamed(context, '/profile');
+        }
+      },
+      items: const [
+        BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+        BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Perfil'),
+      ],
     );
   }
 }
