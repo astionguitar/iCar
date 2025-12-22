@@ -1,1 +1,22 @@
-git status
+git status# Flutter
+.dart_tool/
+.packages
+.pub-cache/
+build/
+
+# IDEs
+.idea/
+.vscode/
+
+# Android / iOS
+android/.gradle/
+android/local.properties
+ios/Pods/
+
+# Web
+node_modules/
+dist/
+
+# Legacy / backups
+_legacy_backup/node_modules/
+_legacy_backup/dist/
