@@ -17,26 +17,20 @@ class _HomeScreenState extends State<HomeScreen> {
 
   List<Workshop> _workshops = [];
   bool _loading = true;
-  int _selectedCategory = 0;
+
+  String _searchText = '';
+  String _selectedCategory = 'Todos';
 
   bool get isLogged =>
       Supabase.instance.client.auth.currentUser != null;
 
-  final List<String> categories = [
-    'Todos',
-    'Mecânica',
-    'Elétrica',
-    'Funilaria',
-    'Pneus',
-  ];
-
   @override
   void initState() {
     super.initState();
-    _loadAll();
+    _loadWorkshops();
   }
 
-  Future<void> _loadAll() async {
+  Future<void> _loadWorkshops() async {
     final data = await _service.getActiveWorkshops();
     setState(() {
       _workshops = data;
@@ -44,47 +38,27 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  Future<void> _search(String value) async {
-    if (value.isEmpty) {
-      _loadAll();
-      return;
-    }
-
-    final result = await _service.search(value);
-    setState(() {
-      _workshops = result;
-    });
-  }
-
-  Future<void> _filterCategory(String category) async {
-    if (category == 'Todos') {
-      _loadAll();
-      return;
-    }
-
-    final result = await _service.getByCategory(category);
-    setState(() {
-      _workshops = result;
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: _header(context),
-      body: _body(),
-      bottomNavigationBar: isLogged ? _footer(context) : null,
+      appBar: _buildHeader(context),
+      bottomNavigationBar: isLogged ? _buildFooter(context) : null,
+      body: _buildBody(),
     );
   }
 
-  // ───────────────── HEADER ─────────────────
+  // ================= HEADER =================
 
-  AppBar _header(BuildContext context) {
+  AppBar _buildHeader(BuildContext context) {
     return AppBar(
       titleSpacing: 0,
       title: InkWell(
         onTap: () {
-          Navigator.pushNamedAndRemoveUntil(context, '/', (_) => false);
+          Navigator.pushNamedAndRemoveUntil(
+            context,
+            '/',
+            (_) => false,
+          );
         },
         child: Row(
           children: const [
@@ -114,37 +88,81 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ───────────────── BODY ─────────────────
+  // ================= FOOTER =================
 
-  Widget _body() {
+  Widget _buildFooter(BuildContext context) {
+    return BottomNavigationBar(
+      currentIndex: 0,
+      onTap: (index) {
+        if (index == 0) {
+          Navigator.pushNamedAndRemoveUntil(context, '/', (_) => false);
+        } else {
+          Navigator.pushNamed(context, '/profile');
+        }
+      },
+      items: const [
+        BottomNavigationBarItem(
+          icon: Icon(Icons.home),
+          label: 'Home',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.person),
+          label: 'Perfil',
+        ),
+      ],
+    );
+  }
+
+  // ================= BODY =================
+
+  Widget _buildBody() {
     if (_loading) {
       return const Center(child: CircularProgressIndicator());
     }
 
+    final filtered = _workshops.where((w) {
+      final text = _searchText.toLowerCase();
+
+      final matchText =
+          w.name.toLowerCase().contains(text) ||
+          w.neighborhood.toLowerCase().contains(text) ||
+          w.city.toLowerCase().contains(text);
+
+      final matchCategory =
+          _selectedCategory == 'Todos' ||
+          w.type.toLowerCase().contains(_selectedCategory.toLowerCase());
+
+      return matchText && matchCategory;
+    }).toList();
+
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        _hero(),
+        _buildHero(),
         const SizedBox(height: 16),
-        _searchBox(),
-        const SizedBox(height: 16),
-        _categories(),
+        _buildSearch(),
+        const SizedBox(height: 12),
+        _buildCategories(),
         const SizedBox(height: 24),
         const Text(
           'Oficinas Recomendadas',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 12),
-        ..._workshops.map(_card),
+        if (filtered.isEmpty)
+          const Center(child: Text('Nenhuma oficina encontrada')),
+        ...filtered.map(_buildCard),
       ],
     );
   }
 
-  Widget _hero() {
+  // ================= HERO =================
+
+  Widget _buildHero() {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFF2F55D4),
+        color: const Color(0xFF3556D8),
         borderRadius: BorderRadius.circular(16),
       ),
       child: const Column(
@@ -168,9 +186,15 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _searchBox() {
+  // ================= SEARCH =================
+
+  Widget _buildSearch() {
     return TextField(
-      onChanged: _search,
+      onChanged: (value) {
+        setState(() {
+          _searchText = value;
+        });
+      },
       decoration: InputDecoration(
         hintText: 'Buscar por nome ou endereço...',
         prefixIcon: const Icon(Icons.search),
@@ -184,7 +208,11 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _categories() {
+  // ================= CATEGORIES =================
+
+  Widget _buildCategories() {
+    final categories = ['Todos', 'Mecânica', 'Elétrica', 'Funilaria', 'Pneus'];
+
     return SizedBox(
       height: 40,
       child: ListView.separated(
@@ -192,14 +220,16 @@ class _HomeScreenState extends State<HomeScreen> {
         itemCount: categories.length,
         separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
-          final selected = index == _selectedCategory;
+          final cat = categories[index];
+          final selected = _selectedCategory == cat;
 
           return ChoiceChip(
-            label: Text(categories[index]),
+            label: Text(cat),
             selected: selected,
             onSelected: (_) {
-              setState(() => _selectedCategory = index);
-              _filterCategory(categories[index]);
+              setState(() {
+                _selectedCategory = cat;
+              });
             },
           );
         },
@@ -207,7 +237,9 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _card(Workshop w) {
+  // ================= CARD =================
+
+  Widget _buildCard(Workshop w) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: ListTile(
@@ -227,25 +259,6 @@ class _HomeScreenState extends State<HomeScreen> {
           );
         },
       ),
-    );
-  }
-
-  // ───────────────── FOOTER ─────────────────
-
-  Widget _footer(BuildContext context) {
-    return BottomNavigationBar(
-      currentIndex: 0,
-      onTap: (index) {
-        if (index == 0) {
-          Navigator.pushNamedAndRemoveUntil(context, '/', (_) => false);
-        } else {
-          Navigator.pushNamed(context, '/profile');
-        }
-      },
-      items: const [
-        BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-        BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Perfil'),
-      ],
     );
   }
 }
