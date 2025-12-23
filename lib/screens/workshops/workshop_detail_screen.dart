@@ -1,107 +1,273 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../models/workshop.dart';
+import '../../services/workshop_experience_service.dart';
+import '../../services/workshop_review_service.dart';
 
-class WorkshopDetailScreen extends StatelessWidget {
+class WorkshopDetailScreen extends StatefulWidget {
   final Workshop workshop;
 
-  const WorkshopDetailScreen({super.key, required this.workshop});
+  const WorkshopDetailScreen({
+    super.key,
+    required this.workshop,
+  });
+
+  @override
+  State<WorkshopDetailScreen> createState() =>
+      _WorkshopDetailScreenState();
+}
+
+class _WorkshopDetailScreenState
+    extends State<WorkshopDetailScreen> {
+  final _experienceService = WorkshopExperienceService();
+  final _reviewService = WorkshopReviewService();
+
+  final Map<String, String> workshopTags = {
+    'ja_usei': '🔧 Já usei',
+    'orcamento_justo': '🧾 Orçamento justo',
+    'cumpre_prazo': '🕒 Cumpre prazo',
+    'confianca': '🤝 Confiança',
+  };
+
+  Map<String, int> tagCounts = {};
+  Set<String> userTags = {};
+
+  double avgRating = 0.0;
+  int reviewsCount = 0;
+  List<Map<String, dynamic>> reviews = [];
 
   bool get isLogged =>
       Supabase.instance.client.auth.currentUser != null;
 
+  String? get userId =>
+      Supabase.instance.client.auth.currentUser?.id;
+
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(workshop.name),
+  void initState() {
+    super.initState();
+    _loadTags();
+    _loadRating();
+    _loadReviews();
+  }
+
+  // ================= TAGS =================
+
+  Future<void> _loadTags() async {
+    final data =
+        await _experienceService.fetchTags(widget.workshop.id);
+
+    final counts = <String, int>{};
+    final mine = <String>{};
+
+    for (final row in data) {
+      final tag = row['tag'] as String;
+      counts[tag] = (counts[tag] ?? 0) + 1;
+
+      if (row['user_id'] == userId) {
+        mine.add(tag);
+      }
+    }
+
+    setState(() {
+      tagCounts = counts;
+      userTags = mine;
+    });
+  }
+
+  Future<void> _toggleTag(String tag) async {
+    if (!isLogged || userId == null) {
+      _openLoginCTA();
+      return;
+    }
+
+    if (userTags.contains(tag)) {
+      await _experienceService.removeTag(
+        workshopId: widget.workshop.id,
+        tag: tag,
+        userId: userId!,
+      );
+    } else {
+      await _experienceService.addTag(
+        workshopId: widget.workshop.id,
+        tag: tag,
+        userId: userId!,
+      );
+    }
+
+    _loadTags();
+  }
+
+  // ================= RATING =================
+
+  Future<void> _loadRating() async {
+    final data = await _reviewService
+        .fetchRatingSummary(widget.workshop.id);
+
+    if (data != null) {
+      setState(() {
+        avgRating = (data['avg_rating'] as num).toDouble();
+        reviewsCount = data['total_reviews'] as int;
+      });
+    } else {
+      setState(() {
+        avgRating = 0.0;
+        reviewsCount = 0;
+      });
+    }
+  }
+
+  Future<void> _loadReviews() async {
+    final data =
+        await _reviewService.fetchReviews(widget.workshop.id);
+
+    setState(() {
+      reviews = data;
+    });
+  }
+
+  // ================= REVIEW MODAL =================
+
+  void _openReviewSheet() {
+    final user = Supabase.instance.client.auth.currentUser;
+
+    if (user == null) {
+      _openLoginCTA();
+      return;
+    }
+
+    int selectedRating = 5;
+    final commentCtrl = TextEditingController();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => StatefulBuilder(
+        builder: (context, setModalState) {
+          return Padding(
+            padding: EdgeInsets.only(
+              bottom:
+                  MediaQuery.of(context).viewInsets.bottom,
+              left: 16,
+              right: 16,
+              top: 16,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Avaliar oficina',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                Row(
+                  mainAxisAlignment:
+                      MainAxisAlignment.center,
+                  children: List.generate(5, (i) {
+                    return IconButton(
+                      icon: Icon(
+                        i < selectedRating
+                            ? Icons.star
+                            : Icons.star_border,
+                        color: Colors.orange,
+                      ),
+                      onPressed: () {
+                        setModalState(() {
+                          selectedRating = i + 1;
+                        });
+                      },
+                    );
+                  }),
+                ),
+
+                TextField(
+                  controller: commentCtrl,
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                    labelText: 'Comentário (opcional)',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                ElevatedButton(
+                  onPressed: () async {
+                    await _reviewService.upsertReview(
+                      workshopId: widget.workshop.id,
+                      userId: user.id,
+                      rating: selectedRating,
+                      comment: commentCtrl.text.trim().isEmpty
+                          ? null
+                          : commentCtrl.text.trim(),
+                    );
+
+                    Navigator.pop(context);
+                    await _loadRating();
+                    await _loadReviews();
+                  },
+                  child: const Text('Salvar avaliação'),
+                ),
+
+                const SizedBox(height: 16),
+              ],
+            ),
+          );
+        },
       ),
-      body: Padding(
+    );
+  }
+
+  // ================= CTA =================
+
+  void _openLoginCTA() {
+    showModalBottomSheet(
+      context: context,
+      builder: (_) => Padding(
         padding: const EdgeInsets.all(16),
-        child: ListView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              workshop.name,
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Text('${workshop.type} • ${workshop.neighborhood}'),
-
-            const SizedBox(height: 24),
-
-            _actionButton(
-              context,
-              icon: Icons.calendar_month,
-              label: 'Agendar serviço',
-              onTap: () => _requireLogin(context),
-            ),
-
-            _actionButton(
-              context,
-              icon: Icons.favorite_border,
-              label: 'Favoritar',
-              onTap: () => _requireLogin(context),
-            ),
-
-            _actionButton(
-              context,
-              icon: Icons.star_border,
-              label: 'Avaliar',
-              onTap: () => _requireLogin(context),
-            ),
-
-            const Divider(height: 32),
-
-            /// CONTATO — VISÍVEL PRA TODOS
             const Text(
-              'Contato',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-
-            ListTile(
-              leading: const Icon(Icons.phone),
-              title: const Text('Ligar'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => _launch('tel:${workshop.phone}'),
-            ),
-
-            ListTile(
-              leading: const Icon(Icons.chat),
-              title: const Text('WhatsApp'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => _launch('https://wa.me/55${workshop.phone}'),
-            ),
-
-            ListTile(
-              leading: const Icon(Icons.map),
-              title: const Text('Ver no mapa'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => _launch(
-                'https://www.google.com/maps/search/${Uri.encodeComponent('${workshop.name} ${workshop.neighborhood}')}',
+              'Entre para interagir',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
               ),
             ),
-
-            const Divider(height: 32),
-
-            /// AVALIAÇÕES — VISÍVEL PRA TODOS
-            const Text(
-              'Avaliações',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
             const SizedBox(height: 12),
-
-            _review(
-              name: 'Carlos M.',
-              comment: 'Atendimento rápido e honesto.',
-              stars: 5,
+            const Text(
+              'Avalie e compartilhe sua experiência.',
+              textAlign: TextAlign.center,
             ),
-            _review(
-              name: 'Ana P.',
-              comment: 'Preço justo e serviço bem feito.',
-              stars: 4,
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      Navigator.pushNamed(context, '/login');
+                    },
+                    child: const Text('Entrar'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      Navigator.pushNamed(
+                          context, '/register');
+                    },
+                    child: const Text('Criar conta'),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -109,101 +275,99 @@ class WorkshopDetailScreen extends StatelessWidget {
     );
   }
 
-  // ===== COMPONENTES =====
+  // ================= UI =================
 
-  Widget _actionButton(
-    BuildContext context, {
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: OutlinedButton.icon(
-        onPressed: onTap,
-        icon: Icon(icon),
-        label: Text(label),
-        style: OutlinedButton.styleFrom(
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-      ),
-    );
-  }
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text(widget.workshop.name)),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: ListView(
+          children: [
+            Text(
+              widget.workshop.name,
+              style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '${widget.workshop.type} • ${widget.workshop.neighborhood}',
+            ),
+            const SizedBox(height: 16),
 
-  Widget _review({
-    required String name,
-    required String comment,
-    required int stars,
-  }) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: ListTile(
-        title: Text(name),
-        subtitle: Text(comment),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: List.generate(
-            stars,
-            (_) => const Icon(Icons.star, size: 16, color: Colors.amber),
-          ),
-        ),
-      ),
-    );
-  }
+            Row(
+              children: [
+                const Icon(Icons.star, color: Colors.orange),
+                const SizedBox(width: 4),
+                Text(avgRating.toStringAsFixed(1)),
+                const SizedBox(width: 8),
+                Text('($reviewsCount avaliações)'),
+                const Spacer(),
+                TextButton(
+                  onPressed: _openReviewSheet,
+                  child: const Text('Avaliar'),
+                ),
+              ],
+            ),
 
-  // ===== LOGIN GATE =====
+            const SizedBox(height: 24),
 
-  void _requireLogin(BuildContext context) {
-    if (isLogged) return;
+            const Text(
+              'Experiência dos usuários',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
 
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (_) {
-        return Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.lock, size: 40),
-              const SizedBox(height: 16),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: workshopTags.entries.map((e) {
+                final tag = e.key;
+                final label = e.value;
+                final count = tagCounts[tag] ?? 0;
+
+                return ChoiceChip(
+                  label: Text('$label ($count)'),
+                  selected: userTags.contains(tag),
+                  selectedColor: Colors.green.shade300,
+                  onSelected: (_) => _toggleTag(tag),
+                );
+              }).toList(),
+            ),
+
+            const SizedBox(height: 32),
+
+            if (reviews.isNotEmpty) ...[
               const Text(
-                'Login necessário',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                'Comentários',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-              const SizedBox(height: 8),
-              const Text(
-                'Para continuar, você precisa estar logado no iCar.',
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  Navigator.pushNamed(context, '/login');
-                },
-                child: const Text('Entrar'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Agora não'),
-              ),
+              const SizedBox(height: 12),
+
+              for (final r in reviews)
+                Card(
+                  child: ListTile(
+                    leading: const Icon(
+                      Icons.star,
+                      color: Colors.orange,
+                    ),
+                    title: Text('${r['rating']} estrelas'),
+                    subtitle: Text(r['comment'] ?? ''),
+                  ),
+                ),
             ],
-          ),
-        );
-      },
+          ],
+        ),
+      ),
     );
-  }
-
-  Future<void> _launch(String url) async {
-    final uri = Uri.parse(url);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
   }
 }
