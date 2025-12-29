@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
+import 'screens/vehicles/vehicle_setup_screen.dart';
 import 'screens/home/home_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/register_screen.dart';
@@ -36,6 +36,7 @@ class MyApp extends StatelessWidget {
 
       // ❌ NÃO COLOQUE '/'
       routes: {
+		'/vehicle': (_) => const VehicleSetupScreen(),
         '/login': (_) => const LoginScreen(),
         '/register': (_) => const RegisterScreen(),
         '/profile': (_) => const ProfileScreen(),

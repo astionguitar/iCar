@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../vehicles/vehicle_setup_screen.dart';
+
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
@@ -19,10 +21,26 @@ class ProfileScreen extends StatelessWidget {
               title: Text(user?.email ?? ''),
             ),
             const Divider(),
+
             ListTile(
               leading: const Icon(Icons.lock),
               title: const Text('Alterar senha'),
             ),
+
+            // 👇 OPÇÃO B — VEÍCULO
+            ListTile(
+              leading: const Icon(Icons.directions_car),
+              title: const Text('Cadastrar / editar veículo'),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const VehicleSetupScreen(),
+                  ),
+                );
+              },
+            ),
+
             ListTile(
               leading: const Icon(Icons.logout),
               title: const Text('Sair'),
