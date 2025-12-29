@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'screens/vehicles/vehicle_setup_screen.dart';
+
 import 'screens/home/home_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/register_screen.dart';
 import 'screens/profile/profile_screen.dart';
+import 'screens/vehicles/vehicle_setup_screen.dart';
+import 'screens/vehicles/my_vehicle_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -31,17 +33,15 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
       ),
 
-      // ✅ VISITANTE REAL
       home: const HomeScreen(),
 
-      // ❌ NÃO COLOQUE '/'
       routes: {
-		'/vehicle': (_) => const VehicleSetupScreen(),
         '/login': (_) => const LoginScreen(),
         '/register': (_) => const RegisterScreen(),
         '/profile': (_) => const ProfileScreen(),
+        '/vehicle': (_) => const VehicleSetupScreen(),
+        '/my-vehicle': (_) => const MyVehicleScreen(), // ✅ ESSENCIAL
       },
     );
   }
 }
-

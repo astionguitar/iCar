@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../models/workshop.dart';
 import '../../services/workshop_service.dart';
+import '../../services/vehicle_prompt_logic.dart';
 import '../workshops/workshop_detail_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -28,6 +29,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadWorkshops();
+    _checkVehiclePrompt(); // 👈 AQUI ESTÁ O GATILHO
   }
 
   Future<void> _loadWorkshops() async {
@@ -37,6 +39,73 @@ class _HomeScreenState extends State<HomeScreen> {
       _loading = false;
     });
   }
+
+  // ================= POPUP =================
+
+  Future<void> _checkVehiclePrompt() async {
+    if (!isLogged) return;
+
+    final shouldAsk = await VehiclePromptLogic().shouldAskForVehicle();
+    if (!shouldAsk) return;
+
+    if (!mounted) return;
+
+    bool dontAskAgain = false;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Cadastrar veículo'),
+          content: StatefulBuilder(
+            builder: (context, setState) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('Deseja cadastrar seu veículo agora?'),
+                  const SizedBox(height: 12),
+                  CheckboxListTile(
+                    value: dontAskAgain,
+                    onChanged: (value) {
+                      setState(() {
+                        dontAskAgain = value ?? false;
+                      });
+                    },
+                    title: const Text('Não perguntar novamente'),
+                    controlAffinity: ListTileControlAffinity.leading,
+                  ),
+                ],
+              );
+            },
+          ),
+          actions: [
+            TextButton(
+              onPressed: () async {
+                if (dontAskAgain) {
+                  await VehiclePromptLogic().disablePrompt();
+                }
+                Navigator.pop(context);
+              },
+              child: const Text('Agora não'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (dontAskAgain) {
+                  await VehiclePromptLogic().disablePrompt();
+                }
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/vehicle');
+              },
+              child: const Text('Cadastrar agora'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // ================= BUILD =================
 
   @override
   Widget build(BuildContext context) {
@@ -156,8 +225,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ================= HERO =================
-
   Widget _buildHero() {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -186,8 +253,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ================= SEARCH =================
-
   Widget _buildSearch() {
     return TextField(
       onChanged: (value) {
@@ -207,8 +272,6 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
-
-  // ================= CATEGORIES =================
 
   Widget _buildCategories() {
     final categories = ['Todos', 'Mecânica', 'Elétrica', 'Funilaria', 'Pneus'];
@@ -236,8 +299,6 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
-
-  // ================= CARD =================
 
   Widget _buildCard(Workshop w) {
     return Card(
