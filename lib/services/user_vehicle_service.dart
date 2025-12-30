@@ -4,13 +4,11 @@ class UserVehicleService {
   final _supabase = Supabase.instance.client;
 
   Future<Map<String, dynamic>?> fetchUserVehicle(String userId) async {
-    final res = await _supabase
+    return await _supabase
         .from('user_vehicle')
         .select()
         .eq('user_id', userId)
         .maybeSingle();
-
-    return res;
   }
 
   Future<void> upsertVehicle({
@@ -29,6 +27,7 @@ class UserVehicleService {
     });
   }
 
+  /// 🚨 ISSO AQUI É O QUE ESTAVA FALTANDO
   Future<void> deleteVehicle(String userId) async {
     await _supabase
         .from('user_vehicle')

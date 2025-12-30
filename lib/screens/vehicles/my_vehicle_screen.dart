@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../services/user_vehicle_service.dart';
 
 class MyVehicleScreen extends StatefulWidget {
   const MyVehicleScreen({super.key});
@@ -9,8 +10,7 @@ class MyVehicleScreen extends StatefulWidget {
 }
 
 class _MyVehicleScreenState extends State<MyVehicleScreen> {
-  final _supabase = Supabase.instance.client;
-
+  final _service = UserVehicleService();
   Map<String, dynamic>? vehicle;
   bool loading = true;
 
@@ -21,36 +21,27 @@ class _MyVehicleScreenState extends State<MyVehicleScreen> {
   }
 
   Future<void> _loadVehicle() async {
-    final user = _supabase.auth.currentUser;
-    if (user == null) return;
-
-    final res = await _supabase
-        .from('user_vehicle')
-        .select()
-        .eq('user_id', user.id)
-        .maybeSingle();
+    final userId = Supabase.instance.client.auth.currentUser!.id;
+    final data = await _service.fetchUserVehicle(userId);
 
     setState(() {
-      vehicle = res;
+      vehicle = data;
       loading = false;
     });
   }
 
   Future<void> _removeVehicle() async {
-    final user = _supabase.auth.currentUser;
-    if (user == null) return;
+    final userId = Supabase.instance.client.auth.currentUser!.id;
 
-    await _supabase
-        .from('user_vehicle')
-        .delete()
-        .eq('user_id', user.id);
+    await _service.deleteVehicle(userId);
 
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Veículo removido')),
-      );
-      Navigator.pop(context);
-    }
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Veículo removido')),
+    );
+
+    Navigator.pop(context); // VOLTA PRO PERFIL
   }
 
   @override
@@ -66,23 +57,16 @@ class _MyVehicleScreenState extends State<MyVehicleScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Ano: ${vehicle!['year']}',
-                        style: const TextStyle(fontSize: 16),
-                      ),
+                      Text('Ano: ${vehicle!['year']}'),
                       const SizedBox(height: 8),
-                      Text(
-                        'KM atual: ${vehicle!['current_km']}',
-                        style: const TextStyle(fontSize: 16),
-                      ),
-                      const SizedBox(height: 24),
-
+                      Text('KM atual: ${vehicle!['current_km']}'),
+                      const Spacer(),
                       ElevatedButton.icon(
-                        icon: const Icon(Icons.delete),
-                        label: const Text('Remover veículo'),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.red,
                         ),
+                        icon: const Icon(Icons.delete),
+                        label: const Text('Remover veículo'),
                         onPressed: _removeVehicle,
                       ),
                     ],

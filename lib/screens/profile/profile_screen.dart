@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../vehicles/vehicle_setup_screen.dart';
+import '../vehicles/my_vehicle_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -16,30 +17,32 @@ class ProfileScreen extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            // EMAIL
             ListTile(
               leading: const Icon(Icons.email),
               title: Text(user?.email ?? ''),
             ),
-
             const Divider(),
 
-            // ALTERAR SENHA
             ListTile(
               leading: const Icon(Icons.lock),
               title: const Text('Alterar senha'),
             ),
 
-            // 👉 MEU VEÍCULO (VISUALIZAR / REMOVER)
+            /// 👇 MEU VEÍCULO
             ListTile(
               leading: const Icon(Icons.directions_car),
               title: const Text('Meu veículo'),
               onTap: () {
-                Navigator.pushNamed(context, '/my-vehicle');
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const MyVehicleScreen(),
+                  ),
+                );
               },
             ),
 
-            // 👉 CADASTRAR / EDITAR VEÍCULO
+            /// 👇 CADASTRAR / EDITAR
             ListTile(
               leading: const Icon(Icons.edit),
               title: const Text('Cadastrar / editar veículo'),
@@ -53,9 +56,6 @@ class ProfileScreen extends StatelessWidget {
               },
             ),
 
-            const Divider(),
-
-            // SAIR
             ListTile(
               leading: const Icon(Icons.logout),
               title: const Text('Sair'),
