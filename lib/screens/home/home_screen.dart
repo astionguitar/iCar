@@ -25,41 +25,42 @@ class _HomeScreenState extends State<HomeScreen> {
   bool get isLogged =>
       Supabase.instance.client.auth.currentUser != null;
 
+  // ================= INIT =================
+
   @override
   void initState() {
     super.initState();
     _loadWorkshops();
-    _checkVehiclePrompt(); // 👈 AQUI ESTÁ O GATILHO
+    _checkVehiclePrompt();
   }
 
   Future<void> _loadWorkshops() async {
     final data = await _service.getActiveWorkshops();
+    if (!mounted) return;
     setState(() {
       _workshops = data;
       _loading = false;
     });
   }
 
-  // ================= POPUP =================
+  // ================= POPUP CADASTRO VEÍCULO =================
 
   Future<void> _checkVehiclePrompt() async {
     if (!isLogged) return;
 
     final shouldAsk = await VehiclePromptLogic().shouldAskForVehicle();
-    if (!shouldAsk) return;
-
-    if (!mounted) return;
+    if (!shouldAsk || !mounted) return;
 
     bool dontAskAgain = false;
 
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) {
+      builder: (_) {
         return AlertDialog(
           title: const Text('Cadastrar veículo'),
           content: StatefulBuilder(
-            builder: (context, setState) {
+            builder: (context, setStateDialog) {
               return Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -68,7 +69,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   CheckboxListTile(
                     value: dontAskAgain,
                     onChanged: (value) {
-                      setState(() {
+                      setStateDialog(() {
                         dontAskAgain = value ?? false;
                       });
                     },
@@ -123,11 +124,7 @@ class _HomeScreenState extends State<HomeScreen> {
       titleSpacing: 0,
       title: InkWell(
         onTap: () {
-          Navigator.pushNamedAndRemoveUntil(
-            context,
-            '/',
-            (_) => false,
-          );
+          Navigator.pushNamedAndRemoveUntil(context, '/', (_) => false);
         },
         child: Row(
           children: const [
@@ -144,11 +141,10 @@ class _HomeScreenState extends State<HomeScreen> {
       actions: [
         TextButton.icon(
           onPressed: () {
-            if (isLogged) {
-              Navigator.pushNamed(context, '/profile');
-            } else {
-              Navigator.pushNamed(context, '/login');
-            }
+            Navigator.pushNamed(
+              context,
+              isLogged ? '/profile' : '/login',
+            );
           },
           icon: const Icon(Icons.person_outline),
           label: Text(isLogged ? 'Perfil' : 'Entrar'),
@@ -213,17 +209,32 @@ class _HomeScreenState extends State<HomeScreen> {
         const SizedBox(height: 12),
         _buildCategories(),
         const SizedBox(height: 24),
+
+        // 🔧 BOTÃO DE TESTE (CONTROLADO, NÃO QUEBRA APP)
+        if (isLogged)
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pushNamed(context, '/vehicle-test');
+            },
+            child: const Text('TESTE MANUTENÇÃO'),
+          ),
+
+        const SizedBox(height: 24),
         const Text(
           'Oficinas Recomendadas',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 12),
+
         if (filtered.isEmpty)
           const Center(child: Text('Nenhuma oficina encontrada')),
+
         ...filtered.map(_buildCard),
       ],
     );
   }
+
+  // ================= COMPONENTES =================
 
   Widget _buildHero() {
     return Container(
@@ -256,9 +267,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildSearch() {
     return TextField(
       onChanged: (value) {
-        setState(() {
-          _searchText = value;
-        });
+        setState(() => _searchText = value);
       },
       decoration: InputDecoration(
         hintText: 'Buscar por nome ou endereço...',
@@ -284,15 +293,11 @@ class _HomeScreenState extends State<HomeScreen> {
         separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
           final cat = categories[index];
-          final selected = _selectedCategory == cat;
-
           return ChoiceChip(
             label: Text(cat),
-            selected: selected,
+            selected: _selectedCategory == cat,
             onSelected: (_) {
-              setState(() {
-                _selectedCategory = cat;
-              });
+              setState(() => _selectedCategory = cat);
             },
           );
         },

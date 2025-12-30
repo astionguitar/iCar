@@ -7,6 +7,8 @@ import 'screens/auth/register_screen.dart';
 import 'screens/profile/profile_screen.dart';
 import 'screens/vehicles/vehicle_setup_screen.dart';
 import 'screens/vehicles/my_vehicle_screen.dart';
+import 'screens/vehicles/vehicle_home_screen.dart';
+import 'screens/vehicles/vehicle_maintenance_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -33,6 +35,7 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
       ),
 
+      // 🔒 fluxo NORMAL do app
       home: const HomeScreen(),
 
       routes: {
@@ -40,7 +43,19 @@ class MyApp extends StatelessWidget {
         '/register': (_) => const RegisterScreen(),
         '/profile': (_) => const ProfileScreen(),
         '/vehicle': (_) => const VehicleSetupScreen(),
-        '/my-vehicle': (_) => const MyVehicleScreen(), // ✅ ESSENCIAL
+        '/my-vehicle': (_) => const MyVehicleScreen(),
+
+        // 🧪 telas de TESTE (isoladas)
+        '/vehicle-test': (_) => const VehicleHomeScreen(
+              vehicleId: 'ced664a7-b9ee-40fd-b78f-65d6f15a026a',
+              vehicleName: 'Ford Ka 2015',
+              currentUsage: 10050,
+            ),
+
+        '/maintenance-test': (_) => const VehicleMaintenanceScreen(
+              vehicleId: 'ced664a7-b9ee-40fd-b78f-65d6f15a026a',
+              currentUsage: 10050,
+            ),
       },
     );
   }
