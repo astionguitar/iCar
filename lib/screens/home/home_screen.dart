@@ -209,17 +209,6 @@ class _HomeScreenState extends State<HomeScreen> {
         const SizedBox(height: 12),
         _buildCategories(),
         const SizedBox(height: 24),
-
-        // 🔧 BOTÃO DE TESTE (CONTROLADO, NÃO QUEBRA APP)
-        if (isLogged)
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pushNamed(context, '/vehicle-test');
-            },
-            child: const Text('TESTE MANUTENÇÃO'),
-          ),
-
-        const SizedBox(height: 24),
         const Text(
           'Oficinas Recomendadas',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
