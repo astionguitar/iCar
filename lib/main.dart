@@ -10,7 +10,6 @@ import 'screens/profile/profile_screen.dart';
 // VEÍCULOS
 import 'screens/vehicles/vehicle_setup_screen.dart';
 import 'screens/vehicles/my_vehicle_screen.dart';
-import 'screens/vehicles/vehicle_home_screen.dart';
 
 // ===============================================
 // MAIN
@@ -43,11 +42,11 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
       ),
 
-      // 🔒 FLUXO NORMAL DO APP
+      // fluxo inicial
       home: const HomeScreen(),
 
       // ===========================================
-      // ROTAS
+      // ROTAS FIXAS (SEM PARÂMETROS)
       // ===========================================
       routes: {
         '/login': (_) => const LoginScreen(),
@@ -57,11 +56,8 @@ class MyApp extends StatelessWidget {
         // cadastro de veículo
         '/vehicle': (_) => const VehicleSetupScreen(),
 
-        // listagem / gerenciamento
+        // listagem de veículos
         '/my-vehicle': (_) => const MyVehicleScreen(),
-
-        // 🔥 TELA DE MANUTENÇÃO (REAL, SEM MOCK)
-        '/vehicle-home': (_) => const VehicleHomeScreen(),
       },
     );
   }
