@@ -1,15 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+// TELAS PRINCIPAIS
 import 'screens/home/home_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/register_screen.dart';
 import 'screens/profile/profile_screen.dart';
+
+// VEÍCULOS
 import 'screens/vehicles/vehicle_setup_screen.dart';
 import 'screens/vehicles/my_vehicle_screen.dart';
 import 'screens/vehicles/vehicle_home_screen.dart';
-import 'screens/vehicles/vehicle_maintenance_screen.dart';
 
+// ===============================================
+// MAIN
+// ===============================================
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -21,6 +26,9 @@ Future<void> main() async {
   runApp(const MyApp());
 }
 
+// ===============================================
+// APP
+// ===============================================
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
@@ -35,27 +43,25 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
       ),
 
-      // 🔒 fluxo NORMAL do app
+      // 🔒 FLUXO NORMAL DO APP
       home: const HomeScreen(),
 
+      // ===========================================
+      // ROTAS
+      // ===========================================
       routes: {
         '/login': (_) => const LoginScreen(),
         '/register': (_) => const RegisterScreen(),
         '/profile': (_) => const ProfileScreen(),
+
+        // cadastro de veículo
         '/vehicle': (_) => const VehicleSetupScreen(),
+
+        // listagem / gerenciamento
         '/my-vehicle': (_) => const MyVehicleScreen(),
 
-        // 🧪 telas de TESTE (isoladas)
-        '/vehicle-test': (_) => const VehicleHomeScreen(
-              vehicleId: 'ced664a7-b9ee-40fd-b78f-65d6f15a026a',
-              vehicleName: 'Ford Ka 2015',
-              currentUsage: 10050,
-            ),
-
-        '/maintenance-test': (_) => const VehicleMaintenanceScreen(
-              vehicleId: 'ced664a7-b9ee-40fd-b78f-65d6f15a026a',
-              currentUsage: 10050,
-            ),
+        // 🔥 TELA DE MANUTENÇÃO (REAL, SEM MOCK)
+        '/vehicle-home': (_) => const VehicleHomeScreen(),
       },
     );
   }

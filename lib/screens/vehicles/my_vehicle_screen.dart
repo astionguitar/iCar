@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../services/user_vehicle_service.dart';
+import '../../services/vehicle_service.dart';
 
 class MyVehicleScreen extends StatefulWidget {
   const MyVehicleScreen({super.key});
@@ -10,68 +9,141 @@ class MyVehicleScreen extends StatefulWidget {
 }
 
 class _MyVehicleScreenState extends State<MyVehicleScreen> {
-  final _service = UserVehicleService();
-  Map<String, dynamic>? vehicle;
-  bool loading = true;
+  final _service = VehicleService();
+  late Future<Map<String, dynamic>?> _vehicleFuture;
 
   @override
   void initState() {
     super.initState();
-    _loadVehicle();
+    _vehicleFuture = _service.getMainVehicle();
   }
 
-  Future<void> _loadVehicle() async {
-    final userId = Supabase.instance.client.auth.currentUser!.id;
-    final data = await _service.fetchUserVehicle(userId);
-
+  void _reload() {
     setState(() {
-      vehicle = data;
-      loading = false;
+      _vehicleFuture = _service.getMainVehicle();
     });
-  }
-
-  Future<void> _removeVehicle() async {
-    final userId = Supabase.instance.client.auth.currentUser!.id;
-
-    await _service.deleteVehicle(userId);
-
-    if (!mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Veículo removido')),
-    );
-
-    Navigator.pop(context); // VOLTA PRO PERFIL
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Meu veículo')),
-      body: loading
-          ? const Center(child: CircularProgressIndicator())
-          : vehicle == null
-              ? const Center(child: Text('Nenhum veículo cadastrado'))
-              : Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Ano: ${vehicle!['year']}'),
-                      const SizedBox(height: 8),
-                      Text('KM atual: ${vehicle!['current_km']}'),
-                      const Spacer(),
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red,
-                        ),
-                        icon: const Icon(Icons.delete),
-                        label: const Text('Remover veículo'),
-                        onPressed: _removeVehicle,
-                      ),
-                    ],
+    return FutureBuilder<Map<String, dynamic>?>(
+      future: _vehicleFuture,
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('Meu veículo')),
+            body: const Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        final vehicle = snapshot.data;
+        if (vehicle == null) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('Meu veículo')),
+            body: Center(
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.pushNamed(context, '/vehicle');
+                },
+                child: const Text('Cadastrar veículo'),
+              ),
+            ),
+          );
+        }
+
+        return Scaffold(
+          appBar: AppBar(
+            title: Text('${vehicle['brand']} ${vehicle['model']}'),
+          ),
+          body: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Ano: ${vehicle['year']}'),
+                const SizedBox(height: 8),
+                Text(
+                  'KM atual: ${vehicle['current_usage']} ${vehicle['usage_unit']}',
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
+                const SizedBox(height: 24),
+
+                ElevatedButton(
+                  onPressed: () async {
+                    final controller = TextEditingController();
+
+                    final result = await showDialog<num>(
+                      context: context,
+                      builder: (context) {
+                        return AlertDialog(
+                          title: const Text('Atualizar KM'),
+                          content: TextField(
+                            controller: controller,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(
+                              labelText: 'Novo KM',
+                            ),
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text('Cancelar'),
+                            ),
+                            ElevatedButton(
+                              onPressed: () {
+                                Navigator.pop(
+                                  context,
+                                  num.tryParse(controller.text),
+                                );
+                              },
+                              child: const Text('Salvar'),
+                            ),
+                          ],
+                        );
+                      },
+                    );
+
+                    if (result != null) {
+                      await _service.updateCurrentUsage(
+                        vehicleId: vehicle['id'],
+                        newUsage: result,
+                      );
+
+                      _reload();
+
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('KM atualizado com sucesso'),
+                        ),
+                      );
+                    }
+                  },
+                  child: const Text('Atualizar KM'),
+                ),
+
+                const Spacer(),
+
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red,
+                  ),
+                  onPressed: () async {
+                    await VehicleService()
+                        .updateCurrentUsage(
+                          vehicleId: vehicle['id'],
+                          newUsage: 0,
+                        );
+                  },
+                  child: const Text('Remover veículo'),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }
