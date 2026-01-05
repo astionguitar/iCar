@@ -45,9 +45,6 @@ class _VehicleSetupScreenState extends State<VehicleSetupScreen> {
   }
 
   Future<void> _saveVehicle() async {
-    final user = Supabase.instance.client.auth.currentUser;
-    if (user == null) return;
-
     if (selectedBrandId == null ||
         selectedModelId == null ||
         selectedYear == null ||
@@ -59,7 +56,6 @@ class _VehicleSetupScreenState extends State<VehicleSetupScreen> {
     }
 
     await _vehicleService.upsertVehicle(
-      userId: user.id,
       brandId: selectedBrandId!,
       modelId: selectedModelId!,
       year: selectedYear!,
@@ -80,20 +76,17 @@ class _VehicleSetupScreenState extends State<VehicleSetupScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Cadastrar veículo'),
-      ),
+      appBar: AppBar(title: const Text('Cadastrar veículo')),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: ListView(
           children: [
-            // MARCA
             DropdownButtonFormField<String>(
               decoration: const InputDecoration(labelText: 'Marca'),
               value: selectedBrandId,
-              items: brands.map<DropdownMenuItem<String>>((b) {
+              items: brands.map((b) {
                 return DropdownMenuItem<String>(
-                  value: b['id'] as String,
+                  value: b['id'],
                   child: Text(b['name']),
                 );
               }).toList(),
@@ -101,56 +94,44 @@ class _VehicleSetupScreenState extends State<VehicleSetupScreen> {
                 setState(() {
                   selectedBrandId = value;
                   models = [];
-                  selectedModelId = null;
                 });
-                if (value != null) {
-                  _loadModels(value);
-                }
+                if (value != null) _loadModels(value);
               },
             ),
 
             const SizedBox(height: 16),
 
-            // MODELO  ✅ AQUI ERA O ERRO
             DropdownButtonFormField<String>(
               decoration: const InputDecoration(labelText: 'Modelo'),
               value: selectedModelId,
-              items: models.map<DropdownMenuItem<String>>((m) {
+              items: models.map((m) {
                 return DropdownMenuItem<String>(
-                  value: m['id'] as String,
+                  value: m['id'],
                   child: Text(m['name']),
                 );
               }).toList(),
               onChanged: (value) {
-                setState(() {
-                  selectedModelId = value;
-                });
+                setState(() => selectedModelId = value);
               },
             ),
 
             const SizedBox(height: 16),
 
-            // ANO
             DropdownButtonFormField<int>(
               decoration: const InputDecoration(labelText: 'Ano'),
               value: selectedYear,
               items: List.generate(40, (i) {
                 final year = DateTime.now().year - i;
-                return DropdownMenuItem<int>(
+                return DropdownMenuItem(
                   value: year,
                   child: Text(year.toString()),
                 );
               }),
-              onChanged: (value) {
-                setState(() {
-                  selectedYear = value;
-                });
-              },
+              onChanged: (value) => setState(() => selectedYear = value),
             ),
 
             const SizedBox(height: 16),
 
-            // KM
             TextField(
               controller: kmController,
               keyboardType: TextInputType.number,

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import '../../services/vehicle_service.dart';
+
+import '../../services/user_vehicle_service.dart';
+import 'vehicle_maintenance_screen.dart';
 
 class MyVehicleScreen extends StatefulWidget {
   const MyVehicleScreen({super.key});
@@ -9,19 +11,18 @@ class MyVehicleScreen extends StatefulWidget {
 }
 
 class _MyVehicleScreenState extends State<MyVehicleScreen> {
-  final _service = VehicleService();
+  final _service = UserVehicleService();
   late Future<Map<String, dynamic>?> _vehicleFuture;
 
   @override
   void initState() {
     super.initState();
-    _vehicleFuture = _service.getMainVehicle();
+    _reload();
   }
 
   void _reload() {
-    setState(() {
-      _vehicleFuture = _service.getMainVehicle();
-    });
+    _vehicleFuture = _service.getUserVehicle();
+    setState(() {});
   }
 
   @override
@@ -29,21 +30,23 @@ class _MyVehicleScreenState extends State<MyVehicleScreen> {
     return FutureBuilder<Map<String, dynamic>?>(
       future: _vehicleFuture,
       builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return Scaffold(
-            appBar: AppBar(title: const Text('Meu veículo')),
-            body: const Center(child: CircularProgressIndicator()),
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
           );
         }
 
         final vehicle = snapshot.data;
+
+        /// 🚗 SEM VEÍCULO
         if (vehicle == null) {
           return Scaffold(
             appBar: AppBar(title: const Text('Meu veículo')),
             body: Center(
               child: ElevatedButton(
                 onPressed: () {
-                  Navigator.pushNamed(context, '/vehicle');
+                  Navigator.pushNamed(context, '/vehicle')
+                      .then((_) => _reload());
                 },
                 child: const Text('Cadastrar veículo'),
               ),
@@ -51,10 +54,10 @@ class _MyVehicleScreenState extends State<MyVehicleScreen> {
           );
         }
 
+        final int currentKm = (vehicle['current_km'] ?? 0) as int;
+
         return Scaffold(
-          appBar: AppBar(
-            title: Text('${vehicle['brand']} ${vehicle['model']}'),
-          ),
+          appBar: AppBar(title: const Text('Meu veículo')),
           body: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -62,30 +65,33 @@ class _MyVehicleScreenState extends State<MyVehicleScreen> {
               children: [
                 Text('Ano: ${vehicle['year']}'),
                 const SizedBox(height: 8),
+
                 Text(
-                  'KM atual: ${vehicle['current_usage']} ${vehicle['usage_unit']}',
+                  'KM atual: $currentKm km',
                   style: const TextStyle(
-                    fontSize: 20,
+                    fontSize: 22,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                const SizedBox(height: 24),
 
-                ElevatedButton(
-                  onPressed: () async {
-                    final controller = TextEditingController();
+                const SizedBox(height: 16),
 
-                    final result = await showDialog<num>(
-                      context: context,
-                      builder: (context) {
-                        return AlertDialog(
+                /// 🔄 ATUALIZAR KM
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      final controller = TextEditingController();
+
+                      final result = await showDialog<int>(
+                        context: context,
+                        builder: (_) => AlertDialog(
                           title: const Text('Atualizar KM'),
                           content: TextField(
                             controller: controller,
                             keyboardType: TextInputType.number,
-                            decoration: const InputDecoration(
-                              labelText: 'Novo KM',
-                            ),
+                            decoration:
+                                const InputDecoration(labelText: 'Novo KM'),
                           ),
                           actions: [
                             TextButton(
@@ -96,48 +102,63 @@ class _MyVehicleScreenState extends State<MyVehicleScreen> {
                               onPressed: () {
                                 Navigator.pop(
                                   context,
-                                  num.tryParse(controller.text),
+                                  int.tryParse(controller.text),
                                 );
                               },
                               child: const Text('Salvar'),
                             ),
                           ],
-                        );
-                      },
-                    );
-
-                    if (result != null) {
-                      await _service.updateCurrentUsage(
-                        vehicleId: vehicle['id'],
-                        newUsage: result,
-                      );
-
-                      _reload();
-
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('KM atualizado com sucesso'),
                         ),
                       );
-                    }
-                  },
-                  child: const Text('Atualizar KM'),
+
+                      if (result != null) {
+                        await _service.updateCurrentKm(
+                          vehicleId: vehicle['id'].toString(),
+                          newKm: result,
+                        );
+                        _reload();
+                      }
+                    },
+                    child: const Text('Atualizar KM'),
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                /// 🔧 MANUTENÇÕES
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => VehicleMaintenanceScreen(
+                            userVehicleId: vehicle['id'].toString(),
+                            currentKm: currentKm,
+                          ),
+                        ),
+                      );
+                    },
+                    child: const Text('Manutenções'),
+                  ),
                 ),
 
                 const Spacer(),
 
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red,
+                /// 🗑️ REMOVER VEÍCULO
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                    ),
+                    onPressed: () async {
+                      await _service.deleteVehicle(vehicle['id'].toString());
+                      _reload();
+                    },
+                    child: const Text('Remover veículo'),
                   ),
-                  onPressed: () async {
-                    await VehicleService()
-                        .updateCurrentUsage(
-                          vehicleId: vehicle['id'],
-                          newUsage: 0,
-                        );
-                  },
-                  child: const Text('Remover veículo'),
                 ),
               ],
             ),

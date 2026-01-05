@@ -3,40 +3,40 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class MaintenanceService {
   final _client = Supabase.instance.client;
 
-  // 🔹 LISTAR manutenções do veículo
   Future<List<Map<String, dynamic>>> getByVehicle(String vehicleId) async {
-    final user = _client.auth.currentUser;
-    if (user == null) return [];
-
     final response = await _client
         .from('maintenance_history')
-        .select()
+        .select('*, maintenance_types(name)')
         .eq('vehicle_id', vehicleId)
         .order('service_date', ascending: false);
 
     return List<Map<String, dynamic>>.from(response);
   }
 
-  // 🔹 ADICIONAR manutenção
   Future<void> addMaintenance({
     required String vehicleId,
-    required String maintenanceId,
-    required DateTime serviceDate,
-    num? serviceValue,
-    String? notes,
+    required String title,
+    String? description,
+    required int km,
+    required String maintenanceTypeId,
   }) async {
     final user = _client.auth.currentUser;
-    if (user == null) {
-      throw Exception('Usuário não autenticado');
-    }
+    if (user == null) return;
 
     await _client.from('maintenance_history').insert({
       'user_id': user.id,
       'vehicle_id': vehicleId,
-      'maintenance_id': maintenanceId,
-      'service_date': serviceDate.toIso8601String(),
-      'service_value': serviceValue,
-      'notes': notes,
+      'title': title,
+      'description': description,
+      'usage_at_service': km,
+      'maintenance_type_id': maintenanceTypeId,
     });
+  }
+
+  Future<void> deleteMaintenance(String id) async {
+    await _client
+        .from('maintenance_history')
+        .delete()
+        .eq('id', id);
   }
 }

@@ -11,9 +11,6 @@ import 'screens/profile/profile_screen.dart';
 import 'screens/vehicles/vehicle_setup_screen.dart';
 import 'screens/vehicles/my_vehicle_screen.dart';
 
-// ===============================================
-// MAIN
-// ===============================================
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -25,9 +22,6 @@ Future<void> main() async {
   runApp(const MyApp());
 }
 
-// ===============================================
-// APP
-// ===============================================
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
@@ -42,21 +36,17 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
       ),
 
-      // fluxo inicial
+      // TELA INICIAL
       home: const HomeScreen(),
 
-      // ===========================================
-      // ROTAS FIXAS (SEM PARÂMETROS)
-      // ===========================================
+      // ROTAS DO APP
       routes: {
         '/login': (_) => const LoginScreen(),
         '/register': (_) => const RegisterScreen(),
         '/profile': (_) => const ProfileScreen(),
 
-        // cadastro de veículo
+        // VEÍCULO
         '/vehicle': (_) => const VehicleSetupScreen(),
-
-        // listagem de veículos
         '/my-vehicle': (_) => const MyVehicleScreen(),
       },
     );

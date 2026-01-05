@@ -1,25 +1,34 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class UserVehicleService {
-  final _supabase = Supabase.instance.client;
+  final _client = Supabase.instance.client;
 
-  Future<Map<String, dynamic>?> fetchUserVehicle(String userId) async {
-    return await _supabase
+  /// Retorna o veículo do usuário logado (1 por usuário)
+  Future<Map<String, dynamic>?> getUserVehicle() async {
+    final user = _client.auth.currentUser;
+    if (user == null) return null;
+
+    final data = await _client
         .from('user_vehicle')
         .select()
-        .eq('user_id', userId)
+        .eq('user_id', user.id)
         .maybeSingle();
+
+    return data;
   }
 
+  /// Cria ou atualiza o veículo do usuário
   Future<void> upsertVehicle({
-    required String userId,
     required String brandId,
     required String modelId,
     required int year,
     required int currentKm,
   }) async {
-    await _supabase.from('user_vehicle').upsert({
-      'user_id': userId,
+    final user = _client.auth.currentUser;
+    if (user == null) return;
+
+    await _client.from('user_vehicle').upsert({
+      'user_id': user.id,
       'brand_id': brandId,
       'model_id': modelId,
       'year': year,
@@ -27,11 +36,22 @@ class UserVehicleService {
     });
   }
 
-  /// 🚨 ISSO AQUI É O QUE ESTAVA FALTANDO
-  Future<void> deleteVehicle(String userId) async {
-    await _supabase
+  /// Atualiza apenas o KM
+  Future<void> updateCurrentKm({
+    required String vehicleId,
+    required int newKm,
+  }) async {
+    await _client
+        .from('user_vehicle')
+        .update({'current_km': newKm})
+        .eq('id', vehicleId);
+  }
+
+  /// Remove o veículo
+  Future<void> deleteVehicle(String vehicleId) async {
+    await _client
         .from('user_vehicle')
         .delete()
-        .eq('user_id', userId);
+        .eq('id', vehicleId);
   }
 }

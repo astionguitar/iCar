@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../services/vehicle_service.dart';
-import 'vehicle_maintenance_screen.dart';
+import '../../services/user_vehicle_service.dart';
 
 class VehicleHomeScreen extends StatelessWidget {
   final Map<String, dynamic> vehicle;
@@ -12,11 +11,11 @@ class VehicleHomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final vehicleService = VehicleService();
+    final vehicleService = UserVehicleService();
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(vehicle['model'] ?? 'Veículo'),
+        title: const Text('Meu veículo'),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
@@ -27,38 +26,73 @@ class VehicleHomeScreen extends StatelessWidget {
               'Ano: ${vehicle['year']}',
               style: const TextStyle(fontSize: 16),
             ),
+
             const SizedBox(height: 8),
+
             Text(
-              'KM atual: ${vehicle['current_usage']} km',
+              'KM atual: ${vehicle['current_km']} km',
               style: const TextStyle(
-                fontSize: 20,
+                fontSize: 22,
                 fontWeight: FontWeight.bold,
               ),
             ),
 
             const SizedBox(height: 24),
 
-            // 🔥 BOTÃO MANUTENÇÕES
+            // 🔹 Atualizar KM
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => VehicleMaintenanceScreen(
-                        vehicle: vehicle,
-                      ),
-                    ),
+                onPressed: () async {
+                  final controller = TextEditingController();
+
+                  final result = await showDialog<int>(
+                    context: context,
+                    builder: (context) {
+                      return AlertDialog(
+                        title: const Text('Atualizar KM'),
+                        content: TextField(
+                          controller: controller,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(
+                            labelText: 'Novo KM',
+                          ),
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('Cancelar'),
+                          ),
+                          ElevatedButton(
+                            onPressed: () {
+                              Navigator.pop(
+                                context,
+                                int.tryParse(controller.text),
+                              );
+                            },
+                            child: const Text('Salvar'),
+                          ),
+                        ],
+                      );
+                    },
                   );
+
+                  if (result != null) {
+                    await vehicleService.updateCurrentKm(
+                      vehicleId: vehicle['id'],
+                      newKm: result,
+                    );
+
+                    Navigator.pop(context);
+                  }
                 },
-                child: const Text('Manutenções'),
+                child: const Text('Atualizar KM'),
               ),
             ),
 
-            const SizedBox(height: 16),
+            const Spacer(),
 
-            // ❌ REMOVER VEÍCULO
+            // ❌ Remover veículo
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
